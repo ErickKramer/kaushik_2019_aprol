@@ -11,6 +11,7 @@ import math
 import utils.map_elites as EvoAlg
 import argparse
 
+
 env_params = {
     "controlStep": 0.01, 
     "simStep": 0.004, 
@@ -54,22 +55,28 @@ parser.add_argument("--lateral_friction",
 parser.add_argument("--toy", 
                     help="Object id 0-5", 
                     type= int)
+parser.add_argument("--print_steps",
+                    help="Print steps during simulation run. (Default: False)",
+                    action="store_true",
+                    default=False)
 
 arguments = parser.parse_args()
 if arguments.lateral_friction is not None: env_params['lateral_friction'] = arguments.lateral_friction
 if arguments.toy is not None: env_params['toy'] = arguments.toy
 
 class EnvClass:
-    def __init__(self, gui=False, controlStep=env_params["controlStep"], simStep = env_params["simStep"], jointControlMode = env_params["jointControlMode"], lateral_friction=env_params["lateral_friction"], toy=env_params["toy"]):
+    def __init__(self, gui=False, controlStep=env_params["controlStep"], 
+                 simStep = env_params["simStep"], jointControlMode = env_params["jointControlMode"], 
+                 lateral_friction=env_params["lateral_friction"], toy=env_params["toy"]):
         self.__actions = []
         self.__controller = KukaController_line()
         if os.getenv('RESIBOTS_DIR') is not None:
             self.__env = Kuka_pusher_env(gui=gui, controlStep=controlStep, simStep = simStep, jointControlMode=jointControlMode, lateral_friction=lateral_friction, toy=toy)
         else:
             self.__env = Kuka_pusher_env(gui=gui, controlStep=controlStep, simStep = simStep, jointControlMode=jointControlMode, lateral_friction=lateral_friction, toy=toy, 
-                                        boturdf="/nfs/hal01/rkaushik/projects/multi_dex_python/environments/URDF/kuka_iiwa/kuka_pusher.urdf", 
-                                        floorurdf="/nfs/hal01/rkaushik/projects/multi_dex_python/environments/URDF/plane.urdf",
-                                        tableurdf = "/nfs/hal01/rkaushik/projects/multi_dex_python/environments/URDF/table_square/table_square.urdf")            
+                                         boturdf   = "environments/URDF/kuka_iiwa/kuka_pusher.urdf", 
+                                         floorurdf = "environments/URDF/plane.urdf",
+                                         tableurdf = "environments/URDF/table_square/table_square.urdf")            
         self.__lock=False
         self.__env.setController(self.__controller)
         self.__gui = gui 
@@ -95,8 +102,8 @@ class EnvClass:
     def getParams(self):
         return self.__params
     
-    def run(self, runtime=3):
-        self.__env.run(runtime)   
+    def run(self, runtime=3, print_steps=False):
+        self.__env.run(runtime, print_steps)   
 
     def reset(self):
         self.__env.reset()
@@ -123,9 +130,8 @@ def load_map(files):
         all_desc += desc.tolist()
 
     return np.array(all_tarjectories), np.array(all_fit), np.array(all_desc)
-
+print("Will steps be printed ", arguments.print_steps)
 Envs = generate_envs(1)
-
 def eval(params):
     for env in Envs:
         if not env.isLock():
@@ -134,7 +140,7 @@ def eval(params):
             env.setParams(params)
 
             xy_old = np.array(env.getEnv().get_object_position())[0:2]
-            env.run(env_params["runtime"])
+            env.run(env_params["runtime"], arguments.print_steps)
             xy_new = np.array(env.getEnv().get_object_position())[0:2]
             
             behavior = (xy_new-xy_old)/max_dispalcement #Assuming max distance to be 1.5
@@ -170,11 +176,10 @@ for i in range(ea_params["n_maps"]):
         exists = os.path.isfile(final_archive)
         if exists:
             archive_files.append(final_archive)
-            print (final_archive)
+            print ("Final archive: ", final_archive)
         else:
             new_file_prefix = 'archive_map'+str(k)+'_'
             break
-    
     archive = EvoAlg.compute(
                     dim_map=2, 
                     dim_x=param_dim, 
