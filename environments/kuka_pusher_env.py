@@ -151,7 +151,7 @@ class Kuka_pusher_env:
             target_velocities = np.clip(err * (1.0/ (math.pi * self.__controlStep)), -max_velocity, max_velocity)
             self.p.setJointMotorControlArray(self.__kukaId, [0,1,2,3,4,5,6], self.p.VELOCITY_CONTROL, targetVelocities=target_velocities, physicsClientId=self.physicsClient)
 
-    def run(self, runtime, goal_position = []):
+    def run(self, runtime, print_steps=False, goal_position = []):
         if (not goal_position == []) and (not self.goal_position == goal_position):             
             if self.goalBodyID is not None:
                 self.p.changeVisualShape(self.goalBodyID, -1, rgbaColor=[0, 0, 0, 0], physicsClientId=self.physicsClient)
@@ -172,7 +172,7 @@ class Kuka_pusher_env:
         frame_pos = self.get_object_position()[0:2]
         frame_angle = self.get_obj_orientation()[2] #z rotation
         eff_position = self.convert_to_world_coordinate(eff_rel_position, frame_pos, frame_angle).tolist() + [self.eff_height]
-        self.reset_eff(eff_position)
+        self.reset_eff(eff_position, print_steps)
         
         #debug
         path = self.__controller.getPath()
@@ -204,12 +204,13 @@ class Kuka_pusher_env:
             if self.p.getConnectionInfo(self.physicsClient)['connectionMethod'] == self.p.GUI:
                 time.sleep(self.__simStep/float(self.__vspeed)) 
         
-    def reset_eff(self, position):
+    def reset_eff(self, position, print_steps=False):
         eff_pos = np.array(self.p.getLinkState(self.__kukaId, 8, physicsClientId=self.physicsClient)[0])
         new_pos = eff_pos.copy()
         new_pos[2] = 2.5
         steps = (np.array(new_pos) - np.array(eff_pos))/10.0
-        print(steps) 
+        if print_steps:
+            print(steps) 
         for i in range(10):
             self.set_commands(np.array(eff_pos)+i*steps)
             self.simulate_for(0.08)
